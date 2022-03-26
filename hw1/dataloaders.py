@@ -35,12 +35,14 @@ def create_train_validation_loaders(dataset: Dataset, validation_ratio,
     validation_len = int(all_len * validation_ratio)
     train_len = all_len - validation_len
     # sampler: Sampler = Sampler(data_source=)
-    validation_subset = SubsetDataset(dataset,subset_len=validation_len, offset=all_len - validation_len)
-    train_subset = SubsetDataset(dataset,subset_len=all_len - validation_len)
+    all_indices_shuffled : torch.Tensor = torch.randperm(all_len)
+    train_indices = all_indices_shuffled[0:train_len]
+    validation_indices = all_indices_shuffled[train_len:all_len]
+
     dl_train = torch.utils.data.DataLoader(
-    dataset, batch_size=batch_size, num_workers=num_workers,sampler=SubsetRandomSampler(indices=range(0, train_len,1)))
+    dataset, batch_size=batch_size, num_workers=num_workers,sampler=SubsetRandomSampler(indices=train_indices))
     dl_valid = torch.utils.data.DataLoader(
-    dataset, batch_size=batch_size, num_workers=num_workers,sampler=SubsetRandomSampler(indices=range(train_len, all_len,1)))
+    dataset, batch_size=batch_size, num_workers=num_workers,sampler=SubsetRandomSampler(indices=validation_indices))
     # ========================
     return dl_train, dl_valid
 
