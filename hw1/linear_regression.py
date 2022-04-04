@@ -1,10 +1,12 @@
 import numpy as np
 import sklearn
 from sklearn.base import BaseEstimator, RegressorMixin, TransformerMixin
+from sklearn.model_selection import KFold
 from sklearn.preprocessing import PolynomialFeatures
 from pandas import DataFrame
 from sklearn.utils import check_array
 from sklearn.utils.validation import check_is_fitted, check_X_y
+import torch
 
 
 class LinearRegressor(BaseEstimator, RegressorMixin):
@@ -24,13 +26,13 @@ class LinearRegressor(BaseEstimator, RegressorMixin):
                 value of the corresponding sample.
         """
         X = check_array(X)
+        self.get_params()
         check_is_fitted(self, 'weights_')
-
         # TODO: Calculate the model prediction, y_pred
 
         y_pred = None
         # ====== YOUR CODE: ======
-        raise NotImplementedError()
+        y_pred = np.dot(X, self.weights_)  # bias is in the weights
         # ========================
 
         return y_pred
@@ -48,7 +50,12 @@ class LinearRegressor(BaseEstimator, RegressorMixin):
 
         w_opt = None
         # ====== YOUR CODE: ======
-        raise NotImplementedError()
+        # b_trick = BiasTrickTransfox`rmer()
+        # X = b_trick.transform(X)
+        Xt_X = np.dot(X.transpose(), X)
+        Xt_X_reg = np.add(Xt_X, self.reg_lambda * np.identity(X.shape[1]))
+        Xt_y = np.dot(X.transpose(), y)
+        w_opt = np.dot(np.linalg.inv(Xt_X_reg), Xt_y)
         # ========================
 
         self.weights_ = w_opt
@@ -68,13 +75,17 @@ class BiasTrickTransformer(BaseEstimator, TransformerMixin):
             (D,) (which assumes N=1).
         :returns: A tensor xb of shape (N,D+1) where xb[:, 0] == 1
         """
-        X = check_array(X)
 
         # TODO: Add bias term to X as the first feature.
-
-        xb = None
         # ====== YOUR CODE: ======
-        raise NotImplementedError()
+        X = check_array(X)
+        N = 1
+        cat_index = 0
+        # if(len(X.shape[2])  1):
+        #     N = X.shape[1]
+        #     cat_index = 1
+        bias = np.ones((X.shape[0], 1))
+        xb = np.concatenate((bias, X), axis=1)
         # ========================
 
         return xb
@@ -84,13 +95,15 @@ class BostonFeaturesTransformer(BaseEstimator, TransformerMixin):
     """
     Generates custom features for the Boston dataset.
     """
+
     def __init__(self, degree=2):
         self.degree = degree
 
         # TODO: Your custom initialization, if needed
         # Add any hyperparameters you need and save them as above
         # ====== YOUR CODE: ======
-        raise NotImplementedError()
+        self.feats = PolynomialFeatures(degree)
+
         # ========================
 
     def fit(self, X, y=None):
@@ -112,10 +125,14 @@ class BostonFeaturesTransformer(BaseEstimator, TransformerMixin):
 
         X_transformed = None
         # ====== YOUR CODE: ======
-        raise NotImplementedError()
+        X_transformed = self.feats.fit_transform(X)
         # ========================
 
         return X_transformed
+
+
+def compute_cor(df: DataFrame, col):
+    return (df[col] - df[col].mean()) ** 2
 
 
 def top_correlated_features(df: DataFrame, target_feature, n=5):
@@ -134,12 +151,36 @@ def top_correlated_features(df: DataFrame, target_feature, n=5):
     """
 
     # TODO: Calculate correlations with target and sort features by it
-
     # ====== YOUR CODE: ======
-    raise NotImplementedError()
+    columns_after_drop = df.columns.drop(target_feature)
+    correlation = np.zeros(0)
+    for col in columns_after_drop:
+        # if(col == target_feature):
+        #     continue
+        cor_xy = ((df[col] - df[col].mean()) *
+                  (df[target_feature] - df[target_feature].mean())).sum()
+        cor_xx_cor_yy = ((compute_cor(df, col).sum()) ** 0.5) * \
+            ((compute_cor(df, target_feature).sum()) ** 0.5)
+        # print(up)
+        correlation = np.append(correlation, np.abs(cor_xy/cor_xx_cor_yy))
+    max_indices = np.argpartition(correlation, n * -1)[n * (-1):][::-1]
+    top_n_features = columns_after_drop[max_indices]
+    top_n_corr = correlation[max_indices]
     # ========================
 
     return top_n_features, top_n_corr
+
+
+def evaluate_accuracy(y: np.ndarray, y_pred: np.ndarray):
+    """
+    Calculates mean squared error (MSE) and coefficient of determination (R-squared).
+    :param y: Target values.
+    :param y_pred: Predicted values.
+    :return: A tuple containing the MSE and R-squared values.
+    """
+    mse = np.mean((y - y_pred) ** 2)
+    rsq = 1 - mse / np.var(y)
+    return mse.item(), rsq.item()
 
 
 def cv_best_hyperparams(model: BaseEstimator, X, y, k_folds,
@@ -170,7 +211,41 @@ def cv_best_hyperparams(model: BaseEstimator, X, y, k_folds,
     # - You can use MSE or R^2 as a score.
 
     # ====== YOUR CODE: ======
-    raise NotImplementedError()
+    best_params = None
+    k_fold = KFold(n_splits=k_folds)
+    cv_array = None
+    param_list = [(degree, lamb)
+                  for degree in degree_range for lamb in lambda_range]
+    for item in param_list:
+        degree, lamb = item
+        total_mse = 0
+        param_dict = {
+                "bostonfeaturestransformer__degree": degree,
+                "linearregressor__reg_lambda": lamb
+        }
+        model.set_params(**param_dict)
+        for train_index, test_index in k_fold.split(X, y):
+            train_x = np.array([X[i] for i in train_index])
+            test_x = np.array([X[i] for i in test_index])
+            train_label = np.array([y[i] for i in train_index])
+            test_label = np.array([y[i] for i in test_index])
+            model.fit(train_x, train_label)  # each fit restarts learning
+            y_pred_test = model.predict(test_x)
+            mse, rsq = evaluate_accuracy(test_label, y_pred_test)
+            # todo Notice that I might need to average the MSE for each paramter set
+            # rather then treating the splits and different terms in the argmax at the end.
+            # -- Done but look over it again
+            total_mse = total_mse + mse/k_folds
+        if(cv_array is None):
+            cv_array = np.array([[total_mse, degree, lamb]])
+        else:
+            cv_array = np.append(cv_array, [[total_mse, degree, lamb]], axis=0)
+    min_index = np.argmin(np.array(cv_array), axis=0)[0]
+    best_params = {
+        "bostonfeaturestransformer__degree": cv_array[min_index][1],
+        "linearregressor__reg_lambda": cv_array[min_index][2]
+    }
+
     # ========================
 
     return best_params
