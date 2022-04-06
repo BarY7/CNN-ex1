@@ -1,7 +1,7 @@
 import numpy as np
 import sklearn
 from sklearn.base import BaseEstimator, RegressorMixin, TransformerMixin
-from sklearn.model_selection import KFold
+from sklearn.model_selection import KFold, cross_val_score
 from sklearn.preprocessing import PolynomialFeatures
 from pandas import DataFrame
 from sklearn.utils import check_array
@@ -102,8 +102,7 @@ class BostonFeaturesTransformer(BaseEstimator, TransformerMixin):
         # TODO: Your custom initialization, if needed
         # Add any hyperparameters you need and save them as above
         # ====== YOUR CODE: ======
-        self.feats = PolynomialFeatures(degree)
-
+        # self.feats = PolynomialFeatures(degree)
         # ========================
 
     def fit(self, X, y=None):
@@ -125,6 +124,7 @@ class BostonFeaturesTransformer(BaseEstimator, TransformerMixin):
 
         X_transformed = None
         # ====== YOUR CODE: ======
+        self.feats = PolynomialFeatures(self.degree)
         X_transformed = self.feats.fit_transform(X)
         # ========================
 
@@ -211,6 +211,35 @@ def cv_best_hyperparams(model: BaseEstimator, X, y, k_folds,
     # - You can use MSE or R^2 as a score.
 
     # ====== YOUR CODE: ======
+
+    # cv_scores = []
+    # for i, degree in enumerate(degree_range):
+    #     model.set_params(bostonfeaturestransformer__degree=degree)
+    #     for i, lambda_reg in enumerate(lambda_range):
+    #         model.set_params(linearregressor__reg_lambda=lambda_reg)
+    #         scores = cross_val_score(model, X, y, cv=k_folds, scoring='neg_mean_squared_error')
+    #         cv_scores.append(scores.mean())
+    # best_index=cv_scores.index(max(cv_scores))
+    # print(best_index)
+    # model.set_params(linearregressor__reg_lambda=lambda_range[best_index%len(lambda_range)])
+    # model.set_params(bostonfeaturestransformer__degree=degree_range[int(best_index/len(lambda_range))])
+    # best_params=model.get_params()
+    
+    # '''
+    # grid_values={'bostonfeaturestransformer__degree':degree_range,'linearregressor__reg_lambda':lambda_range}
+    # clf= GridSearchCV(estimator=model,param_grid=grid_values,scoring='r2',cv=k_folds)
+    # print(clf.fit(X,y))
+    # best_params=clf.best_params_
+
+    # '''
+    # # ========================
+
+    # return best_params
+
+
+
+
+    cv_scores = None
     best_params = None
     k_fold = KFold(n_splits=k_folds)
     cv_array = None
@@ -219,11 +248,18 @@ def cv_best_hyperparams(model: BaseEstimator, X, y, k_folds,
     for item in param_list:
         degree, lamb = item
         total_mse = 0
-        param_dict = {
-                "bostonfeaturestransformer__degree": degree,
-                "linearregressor__reg_lambda": lamb
-        }
-        model.set_params(**param_dict)
+        # param_dict = {
+        #     "bostonfeaturestransformer__degree": degree,
+        #     "linearregressor__reg_lambda": lamb
+        # }
+        # model.set_params(**param_dict)
+        model.set_params(bostonfeaturestransformer__degree=degree)
+        model.set_params(linearregressor__reg_lambda=lamb)
+        # if(cv_array is None):
+        #       cv_array = np.array([[scores.mean(), degree, lamb]])
+        # else:
+        #     cv_array = np.append(cv_array, [[scores.mean(), degree, lamb]], axis=0)
+        # min_index = np.argmax(np.array(cv_array), axis=0)[0]
         for train_index, test_index in k_fold.split(X, y):
             train_x = np.array([X[i] for i in train_index])
             test_x = np.array([X[i] for i in test_index])
@@ -231,21 +267,21 @@ def cv_best_hyperparams(model: BaseEstimator, X, y, k_folds,
             test_label = np.array([y[i] for i in test_index])
             model.fit(train_x, train_label)  # each fit restarts learning
             y_pred_test = model.predict(test_x)
-            mse, rsq = evaluate_accuracy(test_label, y_pred_test)
-            # todo Notice that I might need to average the MSE for each paramter set
-            # rather then treating the splits and different terms in the argmax at the end.
-            # -- Done but look over it again
+            mse = np.mean((test_label - y_pred_test) ** 2)
             total_mse = total_mse + mse/k_folds
+        # score_mean = cross_val_score(model, X, y, cv=k_folds, scoring='neg_mean_squared_error').mean()
         if(cv_array is None):
             cv_array = np.array([[total_mse, degree, lamb]])
         else:
             cv_array = np.append(cv_array, [[total_mse, degree, lamb]], axis=0)
+            
     min_index = np.argmin(np.array(cv_array), axis=0)[0]
+    # return {'bostonfeaturestransformer__degree': 3.0, 'linearregressor__reg_lambda': 29.763514416313193}
     best_params = {
-        "bostonfeaturestransformer__degree": cv_array[min_index][1],
+        "bostonfeaturestransformer__degree": int(cv_array[min_index][1]),
         "linearregressor__reg_lambda": cv_array[min_index][2]
     }
-
+    
     # ========================
 
     return best_params
