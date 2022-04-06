@@ -100,9 +100,10 @@ We conclude that this model now fits the data more and generalizes much better.
 
 part4_q2 = r"""
 **Your answer:**
-1. I think we used logspace because we wanted to check more smaller paramters for lambda - and be efficient while doing so. 
+1. I think we used logspace because we wanted to check more smaller parameters for lambda - and be efficient while doing so. 
 Choosing logspace instead of linspace means that we check more smaller parameters, but we still check larger parameters too. 
-Reaching that with linspace would require much more samples. 
+In order to get the same volume of paramters in the `10^-3` to `10^-1` range, and still be able to get values in range of `10^1`, we 
+will require sampling much more in linspace.
 
 
 2. Overall the model trained once for every pair of ($lambda$, $degree$) $k_fold$ times.
