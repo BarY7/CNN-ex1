@@ -163,9 +163,10 @@ def top_correlated_features(df: DataFrame, target_feature, n=5):
             ((compute_cor(df, target_feature).sum()) ** 0.5)
         # print(up)
         correlation = np.append(correlation, np.abs(cor_xy/cor_xx_cor_yy))
-    max_indices = np.argpartition(correlation, n * -1)[n * (-1):][::-1]
+    correlation_abs = np.abs(correlation) 
+    max_indices = np.argpartition(correlation_abs, n * -1)[n * (-1):][::-1]
     top_n_features = columns_after_drop[max_indices]
-    top_n_corr = correlation[max_indices]
+    top_n_corr = correlation_abs[max_indices]
     # ========================
 
     return top_n_features, top_n_corr
