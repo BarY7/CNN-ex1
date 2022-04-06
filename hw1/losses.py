@@ -55,12 +55,26 @@ class SVMHingeLoss(ClassifierLoss):
 
         loss = None
         # ====== YOUR CODE: ======
-        raise NotImplementedError()
+        delta_mat = torch.ones(x_scores.shape[0],x_scores.shape[1]) * self.delta
+        predicted_mat = y.unsqueeze(1).repeat(1, x_scores.shape[1])
+        score_pre_mat = torch.gather(x_scores, 1, predicted_mat)
+        minus_mat = torch.sub(x_scores,score_pre_mat)
+        final_mat = torch.add(minus_mat,delta_mat)
+        #final_mat[final_mat<0] = 0.0
+        final_mat = torch.where(final_mat>=0,final_mat,torch.zeros_like(final_mat))
+        M = final_mat
+        final_mat = torch.sum(final_mat, dim=1)
+        temp_delta = torch.ones(final_mat.shape[0])* self.delta
+        final_mat = torch.sub(final_mat, temp_delta)
+        final_mat = torch.sum(final_mat)
+        loss = final_mat * (1/x_scores.shape[0])
         # ========================
 
         # TODO: Save what you need for gradient calculation in self.grad_ctx
         # ====== YOUR CODE: ======
-        raise NotImplementedError()
+        self.grad_ctx["X_mat"] = x
+        self.grad_ctx["M_mat"] = M
+        self.grad_ctx["Y_mat"] = y
         # ========================
 
         return loss
@@ -70,10 +84,24 @@ class SVMHingeLoss(ClassifierLoss):
         # TODO: Implement SVM loss gradient calculation
         # Same notes as above. Hint: Use the matrix M from above, based on
         # it create a matrix G such that X^T * G is the gradient.
+        x = self.grad_ctx["X_mat"]
+        M = self.grad_ctx["M_mat"]
+        y = self.grad_ctx["Y_mat"]
 
-        grad = None
-        # ====== YOUR CODE: ======
-        raise NotImplementedError()
+        M = torch.where(M <= 0, M, torch.ones_like(M))
+        #M[M>0] = 1
+        if torch.all(torch.eq(M,M1)) == False :
+            print("nor eq")
+
+        y = torch.reshape(y,(y.shape[0],1))
+        scatter_mat = torch.zeros(M.shape[0],M.shape[1]).scatter_(1,y,1.0)
+        sum_elements = torch.reshape(torch.sum(M, dim=1),(M.shape[0],1)).repeat(1, M.shape[1])
+        multi_sum = sum_elements * -1
+        final_mat = multi_sum*scatter_mat
+        final_mat = (final_mat+M)
+        x = torch.transpose(x,0,1)
+        grad = torch.mm(x,final_mat)/M.shape[0]
+
         # ========================
 
         return grad

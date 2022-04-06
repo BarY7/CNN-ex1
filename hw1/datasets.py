@@ -30,7 +30,7 @@ class RandomImageDataset(Dataset):
         # RNG state outside this method.
         if (index > self.num_samples - 1):
             raise f'Out of bounds, ${self.num_samples} images are available'
-        generator: torch.Generator = torch.Generator() 
+        generator: torch.Generator = torch.Generator()
         generator = generator.manual_seed(index) #for bonus
         image_tensor : torch.Tensor = torch.randint(256,self.image_dim,  generator=generator)
         label : torch.Tensor = torch.randint(self.num_classes, (1,), generator=generator)

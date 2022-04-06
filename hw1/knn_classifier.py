@@ -46,14 +46,20 @@ class KNNClassifier(object):
 
         n_test = x_test.shape[0]
         y_pred = torch.zeros(n_test, dtype=torch.int64)
-
         for i in range(n_test):
             # TODO:
             # - Find indices of k-nearest neighbors of test sample i
             # - Set y_pred[i] to the most common class among them
 
             # ====== YOUR CODE: ======
-            raise NotImplementedError()
+            class_values = torch.zeros(self.n_classes)
+            dist_matrix[:, i:i+1] = dist_matrix[:, i:i+1]*-1
+            temp_calc = dist_matrix[:, i:i+1].squeeze(1)
+            res, indices = temp_calc.topk(self.k)
+            for ind in indices:
+                class_values[self.y_train[ind].item()] = class_values[self.y_train[ind].item()] + 1
+            y_pred[i] = torch.argmax(class_values)
+
             # ========================
 
         return y_pred
@@ -82,7 +88,10 @@ class KNNClassifier(object):
 
         dists = torch.tensor([])
         # ====== YOUR CODE: ======
-        raise NotImplementedError()
+        second_product = -2* torch.matmul(self.x_train, torch.transpose(x_test,0,1))
+        first_product = torch.sum(self.x_train * self.x_train, axis=1).unsqueeze(1)
+        third_product = torch.transpose(torch.sum(x_test * x_test, axis=1).unsqueeze(1), 0, 1)
+        dists = torch.sqrt(first_product + second_product + third_product)
         # ========================
 
         return dists
@@ -103,7 +112,7 @@ def accuracy(y: Tensor, y_pred: Tensor):
 
     accuracy = None
     # ====== YOUR CODE: ======
-    raise NotImplementedError()
+    accuracy = torch.sum(y_pred== y).item()/ y_pred.shape[0]
     # ========================
 
     return accuracy
@@ -133,7 +142,17 @@ def find_best_k(ds_train: Dataset, k_choices, num_folds):
         # different split each iteration), or implement something else.
 
         # ====== YOUR CODE: ======
-        raise NotImplementedError()
+        ratio_v = 1 / num_folds
+        acc_folds = []
+        for fold in range(num_folds):
+            dl_t, dl_v = dataloaders.create_train_validation_loaders(ds_train, ratio_v)
+            model.train(dl_t)
+            x_v, y_v = dataloader_utils.flatten(dl_v)
+            acc_fold = accuracy(y_v, model.predict(x_v))
+            acc_folds.append(acc_fold)
+
+        # Calculate accuracy
+        accuracies.append(acc_folds)
         # ========================
 
     best_k_idx = np.argmax([np.mean(acc) for acc in accuracies])

@@ -31,7 +31,7 @@ def create_train_validation_loaders(dataset: Dataset, validation_ratio,
     #    from the dataset.
 
     # ====== YOUR CODE: ======
-    all_len = len(dataset) 
+    all_len = len(dataset)
     validation_len = int(all_len * validation_ratio)
     train_len = all_len - validation_len
     # sampler: Sampler = Sampler(data_source=)

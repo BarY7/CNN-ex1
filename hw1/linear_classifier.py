@@ -23,7 +23,7 @@ class LinearClassifier(object):
 
         self.weights = None
         # ====== YOUR CODE: ======
-        raise NotImplementedError()
+        self.weights = torch.normal(0, weight_std, size=(n_features, n_classes))
         # ========================
 
     def predict(self, x: Tensor):
@@ -44,7 +44,8 @@ class LinearClassifier(object):
 
         y_pred, class_scores = None, None
         # ====== YOUR CODE: ======
-        raise NotImplementedError()
+        class_scores = torch.matmul(x, self.weights)
+        y_pred = torch.argmax(class_scores, dim=1)
         # ========================
 
         return y_pred, class_scores
@@ -66,7 +67,7 @@ class LinearClassifier(object):
 
         acc = None
         # ====== YOUR CODE: ======
-        raise NotImplementedError()
+        acc = torch.sum(y_pred == y).item() / y_pred.shape[0]
         # ========================
 
         return acc * 100
@@ -99,7 +100,36 @@ class LinearClassifier(object):
             average_loss = 0
 
             # ====== YOUR CODE: ======
-            raise NotImplementedError()
+            count_batch = 0
+            amount_loss = 0
+            total_correct = 0
+
+            for batch, labels in dl_train:
+                pred, scores = self.predict(batch)
+                regu_mat = torch.sum(weight_decay * self.weights * self.weights)
+                amount_loss = amount_loss + loss_fn.loss(batch,labels,scores,pred) + regu_mat
+                grad_loss = loss_fn.grad() + weight_decay*self.weights
+                self.weights = self.weights - learn_rate*grad_loss
+                count_batch +=1
+                total_correct += self.evaluate_accuracy(labels,pred)
+            average_loss = amount_loss/count_batch
+            accuarcy = total_correct / count_batch
+            train_res.loss.append(average_loss.item())
+            train_res.accuracy.append(accuarcy)
+
+            count_batch = 0
+            amount_loss = 0
+            total_correct = 0
+            for batch, labels in dl_valid:
+                pred, scores = self.predict(batch)
+                regu_mat = torch.sum(weight_decay*self.weights*self.weights)
+                amount_loss = amount_loss + loss_fn.loss(batch,labels,scores,pred) + regu_mat
+                count_batch +=1
+                total_correct += self.evaluate_accuracy(labels,pred)
+            average_loss = amount_loss/count_batch
+            accuarcy = total_correct/count_batch
+            valid_res.loss.append(average_loss.item())
+            valid_res.accuracy.append(accuarcy)
             # ========================
             print('.', end='')
 
@@ -119,7 +149,11 @@ class LinearClassifier(object):
         # The output shape should be (n_classes, C, H, W).
 
         # ====== YOUR CODE: ======
-        raise NotImplementedError()
+
+        w_images = self.weights.transpose(0,1)
+        if has_bias :
+            w_images = torch.index_select(w_images,1,torch.arange(0,w_images.shape[1]-1))
+        w_images = w_images.reshape(self.n_classes,img_shape[0],img_shape[1],img_shape[2])
         # ========================
 
         return w_images
