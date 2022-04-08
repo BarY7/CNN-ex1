@@ -90,8 +90,8 @@ class SVMHingeLoss(ClassifierLoss):
 
         M = torch.where(M <= 0, M, torch.ones_like(M))
         #M[M>0] = 1
-        if torch.all(torch.eq(M,M1)) == False :
-            print("nor eq")
+        # if torch.all(torch.eq(M,M1)) == False :
+        #     print("nor eq")
 
         y = torch.reshape(y,(y.shape[0],1))
         scatter_mat = torch.zeros(M.shape[0],M.shape[1]).scatter_(1,y,1.0)
